@@ -18,6 +18,7 @@ import {
   LANGUAGE_OPTIONS,
   type ResponseLanguage,
 } from '@/hooks/useLanguageSetting';
+import { THEME_OPTIONS, type Theme, useTheme } from '@/hooks/useTheme';
 
 type Props = {
   open: boolean;
@@ -43,6 +44,7 @@ export function SettingsPanel({
   onClose,
 }: Props) {
   const [draft, setDraft] = useState('');
+  const { theme, setTheme } = useTheme();
 
   function save() {
     if (!draft.trim()) return;
@@ -150,6 +152,31 @@ export function SettingsPanel({
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {LANGUAGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <label htmlFor="theme" className="text-sm font-medium">
+              Appearance
+            </label>
+            <span className="text-[11px] text-muted-foreground">
+              light / dark / system
+            </span>
+          </div>
+          <select
+            id="theme"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as Theme)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {THEME_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

@@ -42,6 +42,43 @@
     --key-foreground: 40 12% 98%;
   }
 
+  .dark {
+    --background: 30 8% 9%;
+    --foreground: 40 12% 92%;
+
+    --card: 30 7% 12%;
+    --card-foreground: 40 12% 92%;
+
+    --popover: 30 7% 13%;
+    --popover-foreground: 40 12% 92%;
+
+    --primary: 40 12% 92%;
+    --primary-foreground: 30 8% 12%;
+
+    --secondary: 30 6% 17%;
+    --secondary-foreground: 40 12% 88%;
+
+    --muted: 30 6% 17%;
+    --muted-foreground: 40 6% 62%;
+
+    --accent: 30 6% 20%;
+    --accent-foreground: 40 12% 92%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 40 12% 96%;
+
+    --border: 30 6% 20%;
+    --input: 30 6% 22%;
+    --ring: 40 12% 72%;
+
+    --idea: 20 75% 62%;
+    --idea-foreground: 30 8% 10%;
+    --action: 40 10% 88%;
+    --action-foreground: 30 8% 12%;
+    --key: 170 45% 55%;
+    --key-foreground: 30 8% 10%;
+  }
+
   html,
   body,
   #root {

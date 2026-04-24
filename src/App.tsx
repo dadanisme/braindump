@@ -5,6 +5,7 @@ import { get, set, del } from 'idb-keyval';
 import { Toaster } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useGeminiKey } from '@/hooks/useGeminiKey';
+import { ThemeProvider } from '@/hooks/useTheme';
 import { Login } from '@/components/Login';
 import { ApiKeyModal } from '@/components/ApiKeyModal';
 import { Board } from '@/components/Board';
@@ -42,6 +43,7 @@ export default function App() {
   };
 
   return (
+    <ThemeProvider>
     <PersistQueryClientProvider
       client={queryClient}
       persistOptions={{
@@ -81,6 +83,7 @@ export default function App() {
         )}
       </div>
     </PersistQueryClientProvider>
+    </ThemeProvider>
   );
 }
 
