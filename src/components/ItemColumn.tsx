@@ -1,4 +1,4 @@
-import type { ItemRow, ItemWithTopics } from '@/lib/types';
+import type { ItemWithTopics } from '@/lib/types';
 import { ItemCard } from './ItemCard';
 import { cn } from '@/lib/cn';
 
@@ -6,23 +6,9 @@ type Props = {
   title: string;
   accentDot: string;
   items: ItemWithTopics[];
-  selectedTopics: string[];
-  onToggleTopic: (name: string) => void;
-  onUpdate: (id: string, patch: Partial<ItemRow>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-  onOpenRaw: (noteId: string) => void;
 };
 
-export function ItemColumn({
-  title,
-  accentDot,
-  items,
-  selectedTopics,
-  onToggleTopic,
-  onUpdate,
-  onDelete,
-  onOpenRaw,
-}: Props) {
+export function ItemColumn({ title, accentDot, items }: Props) {
   return (
     <div className="flex-1 min-w-0 flex flex-col h-full">
       <div className="px-2 pt-4 pb-3 flex items-baseline justify-between">
@@ -45,17 +31,9 @@ export function ItemColumn({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 pb-3">
+          <div className="flex flex-col gap-1 pb-3">
             {items.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                selectedTopics={selectedTopics}
-                onToggleTopic={onToggleTopic}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onOpenRaw={onOpenRaw}
-              />
+              <ItemCard key={item.id} item={item} />
             ))}
           </div>
         )}

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Calendar, Pencil, Trash2 } from 'lucide-react';
-import type { ItemRow, ItemWithTopics } from '@/lib/types';
-import { formatRelativeDeadline } from '@/lib/relative';
+import { Pencil, Trash2 } from 'lucide-react';
+import type { ItemWithTopics } from '@/lib/types';
 import { cn } from '@/lib/cn';
+import { useFilters } from '@/hooks/useFilters';
+import { useBoardActions } from '@/hooks/useBoardActions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -11,36 +12,18 @@ import { Textarea } from '@/components/ui/textarea';
 
 type Props = {
   item: ItemWithTopics;
-  selectedTopics: string[];
-  onToggleTopic: (name: string) => void;
-  onUpdate: (id: string, patch: Partial<ItemRow>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-  onOpenRaw: (noteId: string) => void;
 };
 
-export function ItemCard({
-  item,
-  selectedTopics,
-  onToggleTopic,
-  onUpdate,
-  onDelete,
-  onOpenRaw,
-}: Props) {
+export function ItemCard({ item }: Props) {
+  const { selectedTopics, toggleTopic, searchActive } = useFilters();
+  const { onUpdate, onDelete, onOpenRaw } = useBoardActions();
+
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.content);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!editing) setDraft(item.content);
   }, [item.content, editing]);
-
-  useEffect(() => {
-    if (showDatePicker && dateInputRef.current) {
-      dateInputRef.current.focus();
-      dateInputRef.current.showPicker?.();
-    }
-  }, [showDatePicker]);
 
   async function saveEdit() {
     const next = draft.trim();
@@ -64,16 +47,6 @@ export function ItemCard({
     }
   }
 
-  async function setDeadline(value: string) {
-    const iso = value ? new Date(value + 'T00:00:00').toISOString() : null;
-    setShowDatePicker(false);
-    try {
-      await onUpdate(item.id, { deadline: iso });
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
-
   async function handleDelete() {
     try {
       await onDelete(item.id);
@@ -83,11 +56,12 @@ export function ItemCard({
   }
 
   const isAction = item.type === 'action';
-  const overdue =
-    isAction &&
-    !!item.deadline &&
-    !item.done &&
-    new Date(item.deadline).getTime() < new Date().setHours(0, 0, 0, 0);
+  const isKeyPoint = item.type === 'key_point';
+  const isIdea = !isAction && !isKeyPoint;
+
+  const showTopics = isIdea || searchActive;
+  const hasTopics = item.topics.length > 0;
+  const renderTopicsRow = !editing && showTopics && hasTopics;
 
   return (
     <div
@@ -100,11 +74,34 @@ export function ItemCard({
         if (e.key === 'Enter' && !editing) onOpenRaw(item.note_id);
       }}
       className={cn(
-        'group relative bg-card text-card-foreground border border-border rounded-lg transition-colors',
-        !editing && 'cursor-pointer hover:border-foreground/25',
+        'group relative text-card-foreground transition-colors duration-150',
+        !editing && 'cursor-pointer',
+        // Idea — card
+        isIdea &&
+          cn(
+            'bg-card border border-border rounded-lg',
+            !editing && 'hover:border-foreground/25',
+          ),
+        // Action — flat checklist row
+        isAction &&
+          cn(
+            'rounded-md',
+            item.done && 'opacity-55',
+            !editing && !item.done && 'hover:bg-muted/50',
+            !editing && item.done && 'hover:opacity-75',
+          ),
+        // Key point — bulleted point
+        isKeyPoint &&
+          cn('rounded-md', !editing && 'hover:bg-[hsl(var(--key)/0.06)]'),
       )}
     >
-      <div className="px-4 py-3">
+      <div
+        className={cn(
+          isAction && 'px-2 py-1.5',
+          isKeyPoint && 'px-2 py-1.5',
+          isIdea && 'px-4 py-3',
+        )}
+      >
         <div className="flex items-start gap-2.5">
           {isAction && (
             <Checkbox
@@ -113,6 +110,13 @@ export function ItemCard({
               onClick={(e) => e.stopPropagation()}
               className="mt-[3px]"
               aria-label={item.done ? 'Mark undone' : 'Mark done'}
+            />
+          )}
+
+          {isKeyPoint && (
+            <span
+              aria-hidden
+              className="shrink-0 mt-[9px] size-[5px] rounded-full bg-key/70"
             />
           )}
 
@@ -137,8 +141,12 @@ export function ItemCard({
           ) : (
             <p
               className={cn(
-                'flex-1 text-[14px] leading-[1.5]',
-                item.done && 'line-through text-muted-foreground',
+                'flex-1 text-[14px]',
+                isKeyPoint
+                  ? 'leading-[1.6] tracking-[0.003em]'
+                  : 'leading-[1.5]',
+                isAction && !item.done && 'font-medium',
+                item.done && 'line-through text-muted-foreground font-normal',
               )}
             >
               {item.content}
@@ -146,8 +154,15 @@ export function ItemCard({
           )}
         </div>
 
-        {!editing && (item.topics.length > 0 || isAction) && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+        {renderTopicsRow && (
+          <div
+            className={cn(
+              'flex flex-wrap items-center gap-1.5',
+              isIdea ? 'mt-2.5' : 'mt-1.5',
+              isAction && 'pl-[26px]',
+              isKeyPoint && 'pl-[15px]',
+            )}
+          >
             {item.topics.map((t) => {
               const active = selectedTopics.includes(t.name);
               return (
@@ -156,7 +171,7 @@ export function ItemCard({
                   variant={active ? 'default' : 'secondary'}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleTopic(t.name);
+                    toggleTopic(t.name);
                   }}
                   className="rounded-md px-1.5 py-0 h-5 text-[11px] font-normal shadow-none cursor-pointer border-transparent"
                 >
@@ -164,49 +179,6 @@ export function ItemCard({
                 </Badge>
               );
             })}
-            {isAction && (
-              <>
-                {showDatePicker ? (
-                  <input
-                    ref={dateInputRef}
-                    type="date"
-                    defaultValue={item.deadline?.slice(0, 10) ?? ''}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setDeadline(e.target.value)}
-                    onBlur={() => setShowDatePicker(false)}
-                    className="text-[11px] bg-background border border-input rounded-md px-1.5 h-5 focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                ) : item.deadline ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDatePicker(true);
-                    }}
-                    className={cn(
-                      'rounded-md px-1.5 h-5 text-[11px] font-normal inline-flex items-center gap-1 transition-colors',
-                      overdue
-                        ? 'bg-destructive/10 text-destructive hover:bg-destructive/15'
-                        : 'bg-secondary text-secondary-foreground hover:bg-accent',
-                    )}
-                  >
-                    <Calendar className="size-2.5" />
-                    {formatRelativeDeadline(item.deadline)}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowDatePicker(true);
-                    }}
-                    className="text-[11px] px-1.5 h-5 rounded-md border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                  >
-                    + deadline
-                  </button>
-                )}
-              </>
-            )}
           </div>
         )}
 

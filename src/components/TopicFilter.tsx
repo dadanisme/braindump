@@ -8,15 +8,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/cn';
+import { useFilters } from '@/hooks/useFilters';
 
 type Props = {
   topics: string[];
-  selected: string[];
-  onToggle: (name: string) => void;
-  onClear: () => void;
 };
 
-export function TopicFilter({ topics, selected, onToggle, onClear }: Props) {
+export function TopicFilter({ topics }: Props) {
+  const { selectedTopics: selected, toggleTopic: onToggle, clearTopics: onClear } =
+    useFilters();
   const [open, setOpen] = useState(false);
 
   return (

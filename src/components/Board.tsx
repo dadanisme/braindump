@@ -2,13 +2,15 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LogOut, Settings } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
+import type { ItemRow } from '@/lib/types';
 import {
   useDeleteItem,
   useDeleteNote,
   useItems,
   useUpdateItem,
 } from '@/hooks/useItems';
-import { useFilters } from '@/hooks/useFilters';
+import { FiltersProvider, useFilters } from '@/hooks/useFilters';
+import { BoardActionsProvider } from '@/hooks/useBoardActions';
 import {
   focusHotkeySymbol,
   useFocusHotkey,
@@ -33,7 +35,15 @@ type Props = {
   onSignOut: () => void;
 };
 
-export function Board({
+export function Board(props: Props) {
+  return (
+    <FiltersProvider>
+      <BoardInner {...props} />
+    </FiltersProvider>
+  );
+}
+
+function BoardInner({
   session,
   apiKey,
   onSaveApiKey,
@@ -45,8 +55,7 @@ export function Board({
   const updateItem = useUpdateItem(userId);
   const deleteItem = useDeleteItem(userId);
   const deleteNote = useDeleteNote(userId);
-  const { query, setQuery, selectedTopics, toggleTopic, clearTopics } =
-    useFilters();
+  const { query, selectedTopics } = useFilters();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -99,149 +108,139 @@ export function Board({
     .sort((a, b) => Number(a.done) - Number(b.done));
   const keyPoints = filtered.filter((i) => i.type === 'key_point');
 
-  const onUpdate = async (
-    id: string,
-    patch: Parameters<typeof updateItem.mutateAsync>[0]['patch'],
-  ) => {
-    try {
-      await updateItem.mutateAsync({ id, patch });
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
+  const onUpdate = useCallback(
+    async (id: string, patch: Partial<ItemRow>) => {
+      try {
+        await updateItem.mutateAsync({ id, patch });
+      } catch (err) {
+        toast.error((err as Error).message);
+      }
+    },
+    [updateItem],
+  );
 
-  const onDelete = async (id: string) => {
-    try {
-      await deleteItem.mutateAsync(id);
-      toast.success('Item deleted');
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
+  const onDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteItem.mutateAsync(id);
+        toast.success('Item deleted');
+      } catch (err) {
+        toast.error((err as Error).message);
+      }
+    },
+    [deleteItem],
+  );
 
   const onDeleteNote = async (noteId: string) => {
     await deleteNote.mutateAsync(noteId);
   };
 
+  const boardActions = useMemo(
+    () => ({ onUpdate, onDelete, onOpenRaw: setOpenNoteId }),
+    [onUpdate, onDelete],
+  );
+
   return (
-    <div className="h-screen flex flex-col">
-      <header className="px-4 pt-4">
-        <div className="max-w-[1500px] mx-auto flex items-center gap-3">
-          <div className="flex items-center gap-2 pr-2">
-            <BrandMark className="size-6" />
-            <h1 className="text-[15px] font-medium tracking-tight leading-none">
-              Brain Dump
-            </h1>
+    <BoardActionsProvider value={boardActions}>
+      <div className="h-screen flex flex-col">
+        <header className="px-4 pt-4">
+          <div className="max-w-[1500px] mx-auto flex items-center gap-3">
+            <div className="flex items-center gap-2 pr-2">
+              <BrandMark className="size-6" />
+              <h1 className="text-[15px] font-medium tracking-tight leading-none">
+                Brain Dump
+              </h1>
+            </div>
+            <div className="flex-1" />
+            <SearchBar ref={searchRef} />
+            <TopicFilter topics={allTopics} />
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+              className="rounded-full size-9"
+            >
+              <Settings />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onSignOut}
+              aria-label={session.user.email ?? 'Sign out'}
+              title={session.user.email ?? 'Sign out'}
+              className="rounded-full size-9 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut />
+            </Button>
           </div>
-          <div className="flex-1" />
-          <SearchBar value={query} onChange={setQuery} ref={searchRef} />
-          <TopicFilter
-            topics={allTopics}
-            selected={selectedTopics}
-            onToggle={toggleTopic}
-            onClear={clearTopics}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-            className="rounded-full size-9"
-          >
-            <Settings />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onSignOut}
-            aria-label={session.user.email ?? 'Sign out'}
-            title={session.user.email ?? 'Sign out'}
-            className="rounded-full size-9 text-muted-foreground hover:text-destructive"
-          >
-            <LogOut />
-          </Button>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 min-h-0 px-4 pt-4">
-        <div className="max-w-[1500px] mx-auto h-full">
-          {isLoading ? (
-            <div className="h-full flex items-center justify-center">
-              <span className="text-sm text-muted-foreground">
-                gathering…
-              </span>
-            </div>
-          ) : items.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="h-full flex gap-4">
-              <ItemColumn
-                title="Ideas"
-                accentDot="bg-idea"
-                items={ideas}
-                selectedTopics={selectedTopics}
-                onToggleTopic={toggleTopic}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onOpenRaw={setOpenNoteId}
-              />
-              <ItemColumn
-                title="Action items"
-                accentDot="bg-action"
-                items={actions}
-                selectedTopics={selectedTopics}
-                onToggleTopic={toggleTopic}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onOpenRaw={setOpenNoteId}
-              />
-              <ItemColumn
-                title="Key points"
-                accentDot="bg-key"
-                items={keyPoints}
-                selectedTopics={selectedTopics}
-                onToggleTopic={toggleTopic}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onOpenRaw={setOpenNoteId}
-              />
-            </div>
-          )}
-        </div>
-      </main>
+        <main className="flex-1 min-h-0 px-4 pt-4">
+          <div className="max-w-[1500px] mx-auto h-full">
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <span className="text-sm text-muted-foreground">
+                  gathering…
+                </span>
+              </div>
+            ) : items.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="h-full flex gap-4">
+                <ItemColumn
+                  title="Ideas"
+                  accentDot="bg-idea"
+                  items={ideas}
+                />
+                <ItemColumn
+                  title="Action items"
+                  accentDot="bg-action"
+                  items={actions}
+                />
+                <ItemColumn
+                  title="Key points"
+                  accentDot="bg-key"
+                  items={keyPoints}
+                />
+              </div>
+            )}
+          </div>
+        </main>
 
-      <BrainDumpInput
-        apiKey={apiKey}
-        userId={userId}
-        ref={inputRef}
-        focusHotkeySymbol={focusHotkeySymbol(hotkeyCode)}
-      />
+        <BrainDumpInput
+          apiKey={apiKey}
+          userId={userId}
+          ref={inputRef}
+          focusHotkeySymbol={focusHotkeySymbol(hotkeyCode)}
+        />
 
-      <SettingsPanel
-        open={settingsOpen}
-        apiKey={apiKey}
-        hotkey={hotkeyCode}
-        onChangeHotkey={saveHotkey}
-        onSave={(k) => {
-          onSaveApiKey(k);
-          setSettingsOpen(false);
-        }}
-        onClear={() => {
-          onClearApiKey();
-          setSettingsOpen(false);
-        }}
-        onClose={() => setSettingsOpen(false)}
-      />
+        <SettingsPanel
+          open={settingsOpen}
+          apiKey={apiKey}
+          hotkey={hotkeyCode}
+          onChangeHotkey={saveHotkey}
+          onSave={(k) => {
+            onSaveApiKey(k);
+            setSettingsOpen(false);
+          }}
+          onClear={() => {
+            onClearApiKey();
+            setSettingsOpen(false);
+          }}
+          onClose={() => setSettingsOpen(false)}
+        />
 
-      <RawNoteModal
-        noteId={openNoteId}
-        title={openNoteTitle}
-        onClose={() => setOpenNoteId(null)}
-        onDelete={onDeleteNote}
-      />
-    </div>
+        <RawNoteModal
+          noteId={openNoteId}
+          title={openNoteTitle}
+          onClose={() => setOpenNoteId(null)}
+          onDelete={onDeleteNote}
+        />
+      </div>
+    </BoardActionsProvider>
   );
 }
 
