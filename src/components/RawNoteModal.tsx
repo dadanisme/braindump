@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type Props = {
   noteId: string | null;
@@ -76,19 +77,43 @@ export function RawNoteModal({ noteId, title, onClose, onDelete }: Props) {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{activeTitle ?? 'Untitled note'}</DialogTitle>
-            {data?.created_at && (
-              <DialogDescription className="text-[12px] text-muted-foreground">
-                {new Date(data.created_at).toLocaleString(undefined, {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                })}
+            {isLoading ? (
+              <DialogDescription asChild>
+                <Skeleton className="h-3 w-32" />
               </DialogDescription>
+            ) : (
+              data?.created_at && (
+                <DialogDescription className="text-[12px] text-muted-foreground">
+                  {new Date(data.created_at).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </DialogDescription>
+              )
             )}
           </DialogHeader>
 
           <div className="max-h-[55vh] overflow-y-auto pr-2">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-2.5 w-full" />
+                  <Skeleton className="h-2.5 w-[94%]" />
+                  <Skeleton className="h-2.5 w-[88%]" />
+                  <Skeleton className="h-2.5 w-[72%]" />
+                </div>
+                <div className="space-y-1.5">
+                  <Skeleton className="h-2.5 w-[96%]" />
+                  <Skeleton className="h-2.5 w-full" />
+                  <Skeleton className="h-2.5 w-[82%]" />
+                  <Skeleton className="h-2.5 w-[58%]" />
+                </div>
+                <div className="space-y-1.5">
+                  <Skeleton className="h-2.5 w-[90%]" />
+                  <Skeleton className="h-2.5 w-full" />
+                  <Skeleton className="h-2.5 w-[66%]" />
+                </div>
+              </div>
             ) : (
               <pre className="whitespace-pre-wrap font-sans text-[14px] leading-[1.65] text-foreground">
                 {data?.raw_text}
