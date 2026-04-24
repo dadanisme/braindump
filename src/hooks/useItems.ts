@@ -54,7 +54,6 @@ export function useItems(userId: string) {
   return useQuery({
     queryKey: itemsKey(userId),
     queryFn: () => fetchItems(userId),
-    staleTime: 30_000,
   });
 }
 

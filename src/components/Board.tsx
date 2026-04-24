@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, RefreshCw, Settings } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { ItemRow } from '@/lib/types';
 import {
+  itemsKey,
   useDeleteItem,
   useDeleteNote,
   useItems,
@@ -52,7 +54,8 @@ function BoardInner({
   onSignOut,
 }: Props) {
   const userId = session.user.id;
-  const { data: items = [], isLoading } = useItems(userId);
+  const qc = useQueryClient();
+  const { data: items = [], isLoading, isFetching } = useItems(userId);
   const updateItem = useUpdateItem(userId);
   const deleteItem = useDeleteItem(userId);
   const deleteNote = useDeleteNote(userId);
@@ -155,6 +158,18 @@ function BoardInner({
             </div>
             <div className="flex-1" />
             <SearchBar ref={searchRef} />
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => qc.invalidateQueries({ queryKey: itemsKey(userId) })}
+              disabled={isFetching}
+              aria-label="Refresh"
+              title="Refresh"
+              className="rounded-full size-9"
+            >
+              <RefreshCw className={isFetching ? 'animate-spin' : undefined} />
+            </Button>
             <TopicFilter topics={allTopics} />
             <Button
               type="button"

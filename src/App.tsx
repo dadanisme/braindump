@@ -1,4 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { get, set, del } from 'idb-keyval';
 import { Toaster } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useGeminiKey } from '@/hooks/useGeminiKey';
@@ -6,22 +9,47 @@ import { Login } from '@/components/Login';
 import { ApiKeyModal } from '@/components/ApiKeyModal';
 import { Board } from '@/components/Board';
 
+const TWO_WEEKS_MS = 1000 * 60 * 60 * 24 * 14;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 30_000,
+      staleTime: Infinity,
+      gcTime: TWO_WEEKS_MS,
     },
   },
+});
+
+const persister = createAsyncStoragePersister({
+  storage: {
+    getItem: (key) => get<string>(key).then((v) => v ?? null),
+    setItem: (key, value) => set(key, value),
+    removeItem: (key) => del(key),
+  },
+  key: 'braindump-query-cache',
 });
 
 export default function App() {
   const { session, loading, signOut } = useAuth();
   const { apiKey, save, clear } = useGeminiKey();
 
+  const handleSignOut = async () => {
+    await signOut();
+    queryClient.clear();
+    await persister.removeClient();
+  };
+
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: TWO_WEEKS_MS,
+        buster: 'v1',
+      }}
+    >
       <Toaster
         position="top-center"
         toastOptions={{
@@ -48,11 +76,11 @@ export default function App() {
             apiKey={apiKey}
             onSaveApiKey={save}
             onClearApiKey={clear}
-            onSignOut={signOut}
+            onSignOut={handleSignOut}
           />
         )}
       </div>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
