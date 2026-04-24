@@ -4,6 +4,7 @@ import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BrandMark } from '@/components/BrandMark';
 
 export function Login() {
   const { signIn } = useAuth();
@@ -29,13 +30,7 @@ export function Login() {
     <div className="min-h-screen flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex items-center gap-2.5">
-          <div className="size-7 rounded-md bg-primary flex items-center justify-center">
-            <div className="flex flex-col gap-[2px]">
-              <span className="h-[2px] w-3 rounded-full bg-primary-foreground/60" />
-              <span className="h-[2px] w-3 rounded-full bg-primary-foreground/60" />
-              <span className="h-[2px] w-3 rounded-full bg-primary-foreground/60" />
-            </div>
-          </div>
+          <BrandMark className="size-7" />
           <h1 className="text-lg font-medium tracking-tight">Brain Dump</h1>
         </div>
 

@@ -10,10 +10,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import {
+  FOCUS_HOTKEY_OPTIONS,
+  type FocusHotkeyCode,
+} from '@/hooks/useFocusHotkey';
 
 type Props = {
   open: boolean;
   apiKey: string | null;
+  hotkey: FocusHotkeyCode;
+  onChangeHotkey: (code: FocusHotkeyCode) => void;
   onSave: (key: string) => void;
   onClear: () => void;
   onClose: () => void;
@@ -22,6 +28,8 @@ type Props = {
 export function SettingsPanel({
   open,
   apiKey,
+  hotkey,
+  onChangeHotkey,
   onSave,
   onClear,
   onClose,
@@ -85,6 +93,33 @@ export function SettingsPanel({
               </Button>
             )}
           </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <label htmlFor="focus-hotkey" className="text-sm font-medium">
+              Focus input hotkey
+            </label>
+            <span className="text-[11px] text-muted-foreground">
+              tap alone, or press <kbd className="font-mono">/</kbd>
+            </span>
+          </div>
+          <select
+            id="focus-hotkey"
+            value={hotkey}
+            onChange={(e) =>
+              onChangeHotkey(e.target.value as FocusHotkeyCode)
+            }
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {FOCUS_HOTKEY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <Separator />

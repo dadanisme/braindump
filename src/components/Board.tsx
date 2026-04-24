@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LogOut, Settings } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
@@ -9,12 +9,20 @@ import {
   useUpdateItem,
 } from '@/hooks/useItems';
 import { useFilters } from '@/hooks/useFilters';
+import {
+  focusHotkeySymbol,
+  useFocusHotkey,
+  useFocusHotkeySetting,
+  useSearchHotkey,
+  useSlashFocus,
+} from '@/hooks/useFocusHotkey';
 import { BrainDumpInput } from './BrainDumpInput';
 import { ItemColumn } from './ItemColumn';
 import { SearchBar } from './SearchBar';
 import { TopicFilter } from './TopicFilter';
 import { SettingsPanel } from './SettingsPanel';
 import { RawNoteModal } from './RawNoteModal';
+import { BrandMark } from './BrandMark';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -41,6 +49,20 @@ export function Board({
     useFilters();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const { code: hotkeyCode, save: saveHotkey } = useFocusHotkeySetting();
+
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+  const focusSearch = useCallback(() => {
+    searchRef.current?.focus();
+    searchRef.current?.select();
+  }, []);
+  useFocusHotkey(hotkeyCode, focusInput);
+  useSlashFocus(focusInput);
+  useSearchHotkey(focusSearch);
 
   const openNoteTitle = openNoteId
     ? items.find((i) => i.note_id === openNoteId && i.type === 'idea')
@@ -72,7 +94,9 @@ export function Board({
   }, [items, query, selectedTopics]);
 
   const ideas = filtered.filter((i) => i.type === 'idea');
-  const actions = filtered.filter((i) => i.type === 'action');
+  const actions = filtered
+    .filter((i) => i.type === 'action')
+    .sort((a, b) => Number(a.done) - Number(b.done));
   const keyPoints = filtered.filter((i) => i.type === 'key_point');
 
   const onUpdate = async (
@@ -104,19 +128,13 @@ export function Board({
       <header className="px-4 pt-4">
         <div className="max-w-[1500px] mx-auto flex items-center gap-3">
           <div className="flex items-center gap-2 pr-2">
-            <div className="size-6 rounded-md bg-primary flex items-center justify-center">
-              <div className="flex flex-col gap-[2px]">
-                <span className="h-[2px] w-2.5 rounded-full bg-primary-foreground/60" />
-                <span className="h-[2px] w-2.5 rounded-full bg-primary-foreground/60" />
-                <span className="h-[2px] w-2.5 rounded-full bg-primary-foreground/60" />
-              </div>
-            </div>
+            <BrandMark className="size-6" />
             <h1 className="text-[15px] font-medium tracking-tight leading-none">
               Brain Dump
             </h1>
           </div>
           <div className="flex-1" />
-          <SearchBar value={query} onChange={setQuery} />
+          <SearchBar value={query} onChange={setQuery} ref={searchRef} />
           <TopicFilter
             topics={allTopics}
             selected={selectedTopics}
@@ -194,11 +212,18 @@ export function Board({
         </div>
       </main>
 
-      <BrainDumpInput apiKey={apiKey} userId={userId} />
+      <BrainDumpInput
+        apiKey={apiKey}
+        userId={userId}
+        ref={inputRef}
+        focusHotkeySymbol={focusHotkeySymbol(hotkeyCode)}
+      />
 
       <SettingsPanel
         open={settingsOpen}
         apiKey={apiKey}
+        hotkey={hotkeyCode}
+        onChangeHotkey={saveHotkey}
         onSave={(k) => {
           onSaveApiKey(k);
           setSettingsOpen(false);
