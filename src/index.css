@@ -40,6 +40,8 @@
     --action-foreground: 40 12% 98%;
     --key: 170 40% 35%;
     --key-foreground: 40 12% 98%;
+
+    --shadow-color: 30 8% 14%;
   }
 
   .dark {
@@ -77,6 +79,8 @@
     --action-foreground: 30 8% 12%;
     --key: 170 45% 55%;
     --key-foreground: 30 8% 10%;
+
+    --shadow-color: 0 0% 0%;
   }
 
   html,

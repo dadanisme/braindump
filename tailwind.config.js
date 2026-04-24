@@ -63,10 +63,10 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        card: '0 1px 2px hsl(var(--foreground) / 0.04)',
-        'card-hover': '0 1px 3px hsl(var(--foreground) / 0.08), 0 4px 12px hsl(var(--foreground) / 0.06)',
+        card: '0 1px 2px hsl(var(--shadow-color) / 0.04)',
+        'card-hover': '0 1px 3px hsl(var(--shadow-color) / 0.08), 0 4px 12px hsl(var(--shadow-color) / 0.06)',
         overlay:
-          '0 10px 28px hsl(var(--foreground) / 0.12), 0 40px 80px hsl(var(--foreground) / 0.14)',
+          '0 10px 28px hsl(var(--shadow-color) / 0.12), 0 40px 80px hsl(var(--shadow-color) / 0.14)',
       },
     },
   },
