@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { extractItems } from '../lib/gemini';
+import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
 import type {
   ItemRow,
   ItemTopicRow,
@@ -93,7 +94,11 @@ export function useUpdateItem(userId: string) {
   });
 }
 
-export function useExtractDump(userId: string, apiKey: string) {
+export function useExtractDump(
+  userId: string,
+  apiKey: string,
+  language: ResponseLanguage,
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (rawText: string) => {
@@ -109,6 +114,7 @@ export function useExtractDump(userId: string, apiKey: string) {
         new Date().toISOString(),
         'Asia/Jakarta',
         existingTopics,
+        language,
       );
 
       if (res.items.length === 0) return 0;

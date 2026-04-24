@@ -14,12 +14,18 @@ import {
   FOCUS_HOTKEY_OPTIONS,
   type FocusHotkeyCode,
 } from '@/hooks/useFocusHotkey';
+import {
+  LANGUAGE_OPTIONS,
+  type ResponseLanguage,
+} from '@/hooks/useLanguageSetting';
 
 type Props = {
   open: boolean;
   apiKey: string | null;
   hotkey: FocusHotkeyCode;
   onChangeHotkey: (code: FocusHotkeyCode) => void;
+  language: ResponseLanguage;
+  onChangeLanguage: (lang: ResponseLanguage) => void;
   onSave: (key: string) => void;
   onClear: () => void;
   onClose: () => void;
@@ -30,6 +36,8 @@ export function SettingsPanel({
   apiKey,
   hotkey,
   onChangeHotkey,
+  language,
+  onChangeLanguage,
   onSave,
   onClear,
   onClose,
@@ -115,6 +123,33 @@ export function SettingsPanel({
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {FOCUS_HOTKEY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <label htmlFor="response-language" className="text-sm font-medium">
+              Response language
+            </label>
+            <span className="text-[11px] text-muted-foreground">
+              forces Gemini output
+            </span>
+          </div>
+          <select
+            id="response-language"
+            value={language}
+            onChange={(e) =>
+              onChangeLanguage(e.target.value as ResponseLanguage)
+            }
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {LANGUAGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

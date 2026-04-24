@@ -18,6 +18,7 @@ import {
   useSearchHotkey,
   useSlashFocus,
 } from '@/hooks/useFocusHotkey';
+import { useLanguageSetting } from '@/hooks/useLanguageSetting';
 import { BrainDumpInput } from './BrainDumpInput';
 import { ItemColumn } from './ItemColumn';
 import { SearchBar } from './SearchBar';
@@ -61,6 +62,7 @@ function BoardInner({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const { code: hotkeyCode, save: saveHotkey } = useFocusHotkeySetting();
+  const { language, save: saveLanguage } = useLanguageSetting();
 
   const focusInput = useCallback(() => {
     inputRef.current?.focus();
@@ -213,6 +215,7 @@ function BoardInner({
         <BrainDumpInput
           apiKey={apiKey}
           userId={userId}
+          language={language}
           ref={inputRef}
           focusHotkeySymbol={focusHotkeySymbol(hotkeyCode)}
         />
@@ -222,6 +225,8 @@ function BoardInner({
           apiKey={apiKey}
           hotkey={hotkeyCode}
           onChangeHotkey={saveHotkey}
+          language={language}
+          onChangeLanguage={saveLanguage}
           onSave={(k) => {
             onSaveApiKey(k);
             setSettingsOpen(false);

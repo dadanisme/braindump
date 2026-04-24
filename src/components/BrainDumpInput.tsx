@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { toast } from 'sonner';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useExtractDump } from '@/hooks/useItems';
+import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
@@ -9,6 +10,7 @@ import { cn } from '@/lib/cn';
 type Props = {
   apiKey: string;
   userId: string;
+  language: ResponseLanguage;
   focusHotkeySymbol?: string;
 };
 
@@ -16,11 +18,11 @@ const COLLAPSED_H = 36;
 const MIN_H = 56;
 const MAX_H = 180;
 
-export const BrainDumpInput = forwardRef<HTMLTextAreaElement, Props>(function BrainDumpInput({ apiKey, userId, focusHotkeySymbol }, forwardedRef) {
+export const BrainDumpInput = forwardRef<HTMLTextAreaElement, Props>(function BrainDumpInput({ apiKey, userId, language, focusHotkeySymbol }, forwardedRef) {
   const [text, setText] = useState('');
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const extract = useExtractDump(userId, apiKey);
+  const extract = useExtractDump(userId, apiKey, language);
   const ref = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(forwardedRef, () => ref.current as HTMLTextAreaElement, []);
 

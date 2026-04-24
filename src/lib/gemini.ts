@@ -1,9 +1,8 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { GeminiResponse } from './types';
+import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
 
-const SYSTEM_INSTRUCTION = `You are a personal brain-dump classifier. Users paste raw stream-of-consciousness notes, often Indonesian and English with frequent code-switching. Your job is to turn the dump into a clean, useful board.
-
-# 0. Language — match the dump, always
+const LANGUAGE_RULE_AUTO = `# 0. Language — match the dump, always
 Every \`content\` field (idea summary, actions, key_points) must be in the SAME language as the source dump.
 - All-Indonesian dump → all outputs in Indonesian.
 - All-English dump → all outputs in English.
@@ -13,7 +12,40 @@ Never translate. Never normalize to English. Never invent English words when the
 
 This rule is absolute and overrides every other instruction. It applies to the synthesized idea just as strictly as to quoted actions and key_points.
 
-Topic tags are the one exception: proper nouns stay as-is in any language (project names, people, tools).
+Topic tags are the one exception: proper nouns stay as-is in any language (project names, people, tools).`;
+
+const LANGUAGE_RULE_ID = `# 0. Language — Indonesian only (FORCED)
+Every \`content\` field (idea summary, actions, key_points) MUST be in Bahasa Indonesia, regardless of the dump's language.
+
+- If the dump is in English, translate into natural Bahasa Indonesia.
+- If the dump is code-switched / mixed, output purely in Bahasa Indonesia.
+- If the dump is already in Indonesian, keep it Indonesian.
+
+Proper nouns (people, projects, tools, brands) stay as-is — do NOT translate them. Technical terms that have no natural Indonesian equivalent may stay in English. Topic tags follow the same rule: proper nouns unchanged, common-noun tags in Indonesian.
+
+This rule is absolute, non-negotiable, and overrides every other instruction — including Rule 5 about preserving the user's original wording. When forced translation conflicts with preserving voice, translation wins. Never output English \`content\` under any circumstance.`;
+
+const LANGUAGE_RULE_EN = `# 0. Language — English only (FORCED)
+Every \`content\` field (idea summary, actions, key_points) MUST be in English, regardless of the dump's language.
+
+- If the dump is in Indonesian, translate into natural English.
+- If the dump is code-switched / mixed, output purely in English.
+- If the dump is already in English, keep it English.
+
+Proper nouns (people, projects, tools, brands) stay as-is — do NOT translate them. Topic tags follow the same rule: proper nouns unchanged, common-noun tags in English.
+
+This rule is absolute, non-negotiable, and overrides every other instruction — including Rule 5 about preserving the user's original wording. When forced translation conflicts with preserving voice, translation wins. Never output Indonesian \`content\` under any circumstance.`;
+
+function languageRule(language: ResponseLanguage): string {
+  if (language === 'id') return LANGUAGE_RULE_ID;
+  if (language === 'en') return LANGUAGE_RULE_EN;
+  return LANGUAGE_RULE_AUTO;
+}
+
+function buildSystemInstruction(language: ResponseLanguage): string {
+  return `You are a personal brain-dump classifier. Users paste raw stream-of-consciousness notes, often Indonesian and English with frequent code-switching. Your job is to turn the dump into a clean, useful board.
+
+${languageRule(language)}
 
 # 1. Always produce exactly ONE idea
 Every dump must yield exactly one item with type "idea" — a concise one-line summary of the whole dump. Think headline. ≤ 140 characters. Natural, no quotes, no trailing period needed. This is always the FIRST item in the response.
@@ -58,6 +90,7 @@ For the **idea** (summary/title), synthesize freely — it is a distilled headli
 
 # 6. Output
 Respond with JSON matching the provided schema. No commentary, no prose, no trailing text.`;
+}
 
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
@@ -96,6 +129,7 @@ export async function extractItems(
   nowIso: string,
   tz: string,
   existingTopics: string[] = [],
+  language: ResponseLanguage = 'auto',
 ): Promise<GeminiResponse> {
   const ai = new GoogleGenAI({ apiKey });
   const existingSection =
@@ -106,7 +140,7 @@ export async function extractItems(
     model: 'gemini-2.5-flash-lite',
     contents: `Current date: ${nowIso}\nTimezone: ${tz}\n\n${existingSection}---\n${rawText}`,
     config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: buildSystemInstruction(language),
       responseMimeType: 'application/json',
       responseSchema: RESPONSE_SCHEMA,
     },
