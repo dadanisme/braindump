@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 12% 96%;
+    --foreground: 30 8% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 30 8% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 8% 14%;
+
+    --primary: 30 8% 14%;
+    --primary-foreground: 40 12% 98%;
+
+    --secondary: 40 10% 92%;
+    --secondary-foreground: 30 8% 20%;
+
+    --muted: 40 10% 92%;
+    --muted-foreground: 30 5% 45%;
+
+    --accent: 40 10% 90%;
+    --accent-foreground: 30 8% 14%;
+
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 40 12% 98%;
+
+    --border: 40 10% 86%;
+    --input: 40 10% 86%;
+    --ring: 30 8% 14%;
+
+    --radius: 0.625rem;
+
+    --idea: 20 65% 52%;
+    --idea-foreground: 40 12% 98%;
+    --action: 30 8% 14%;
+    --action-foreground: 40 12% 98%;
+    --key: 170 40% 35%;
+    --key-foreground: 40 12% 98%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.12);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.22);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+}
