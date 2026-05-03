@@ -44,3 +44,26 @@ export type GeminiItem = {
 export type GeminiResponse = {
   items: GeminiItem[];
 };
+
+export type GeminiUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
+export type AiUsageStatus = 'success' | 'error';
+
+export type AiUsageRow = {
+  id: string;
+  user_id: string;
+  note_id: string | null;
+  model_name: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  fx_rate_idr: number;
+  status: AiUsageStatus;
+  error_message: string | null;
+  created_at: string;
+};

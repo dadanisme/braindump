@@ -4,6 +4,8 @@ import { Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useRawNote } from '@/hooks/useItems';
+import { useNoteUsage } from '@/hooks/useAiUsage';
+import { formatIdr } from '@/lib/pricing';
 import {
   Dialog,
   DialogContent,
@@ -27,12 +29,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 type Props = {
   noteId: string | null;
+  userId: string;
   title: string | null;
   onClose: () => void;
   onDelete: (noteId: string) => Promise<void>;
 };
 
-export function RawNoteModal({ noteId, title, onClose, onDelete }: Props) {
+export function RawNoteModal({
+  noteId,
+  userId,
+  title,
+  onClose,
+  onDelete,
+}: Props) {
   // Snapshot the last non-null noteId/title so the dialog keeps rendering its
   // content during the close animation instead of flashing to an empty state.
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -46,6 +55,7 @@ export function RawNoteModal({ noteId, title, onClose, onDelete }: Props) {
   }, [noteId, title]);
 
   const { data, isLoading, error } = useRawNote(activeNoteId);
+  const { data: usage } = useNoteUsage(userId, activeNoteId);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const lastSeenError = useRef<unknown>(null);
@@ -90,6 +100,19 @@ export function RawNoteModal({ noteId, title, onClose, onDelete }: Props) {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })}
+                  {usage && (
+                    <>
+                      <span className="px-1.5 text-muted-foreground/50">
+                        ·
+                      </span>
+                      <span className="tabular-nums">
+                        {formatIdr(
+                          Number(usage.cost_usd),
+                          Number(usage.fx_rate_idr),
+                        )}
+                      </span>
+                    </>
+                  )}
                 </DialogDescription>
               )
             )}

@@ -1,14 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { extractItems } from '../lib/gemini';
+import { extractItems, GeminiCallError } from '../lib/gemini';
+import { computeCostUsd } from '../lib/pricing';
+import { getUsdToIdrRate } from '../lib/currency';
+import { aiUsageKeys } from './useAiUsage';
 import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
 import type {
+  GeminiUsage,
   ItemRow,
   ItemTopicRow,
   ItemWithTopics,
   NoteRow,
   TopicRow,
 } from '../lib/types';
+
+async function logAiUsage(args: {
+  userId: string;
+  noteId: string | null;
+  model: string;
+  usage: GeminiUsage;
+  fxRate: number;
+  status: 'success' | 'error';
+  errorMessage?: string | null;
+}) {
+  const cost = computeCostUsd(args.model, args.usage.inputTokens, args.usage.outputTokens);
+  const { error } = await supabase.from('ai_usage').insert({
+    user_id: args.userId,
+    note_id: args.noteId,
+    model_name: args.model,
+    input_tokens: args.usage.inputTokens,
+    output_tokens: args.usage.outputTokens,
+    total_tokens: args.usage.totalTokens,
+    cost_usd: cost,
+    fx_rate_idr: args.fxRate,
+    status: args.status,
+    error_message: args.errorMessage ?? null,
+  });
+  if (error) {
+    console.error('Failed to log AI usage', error);
+  }
+}
 
 export function itemsKey(userId: string) {
   return ['items', userId] as const;
@@ -107,16 +138,46 @@ export function useExtractDump(
         new Set(cached.flatMap((i) => i.topics.map((t) => t.name))),
       ).sort((a, b) => a.localeCompare(b));
 
-      const res = await extractItems(
-        apiKey,
-        rawText,
-        new Date().toISOString(),
-        'Asia/Jakarta',
-        existingTopics,
-        language,
-      );
+      const fxRate = await getUsdToIdrRate();
 
-      if (res.items.length === 0) return 0;
+      let extracted;
+      try {
+        extracted = await extractItems(
+          apiKey,
+          rawText,
+          new Date().toISOString(),
+          'Asia/Jakarta',
+          existingTopics,
+          language,
+        );
+      } catch (err) {
+        if (err instanceof GeminiCallError && err.usage) {
+          await logAiUsage({
+            userId,
+            noteId: null,
+            model: err.model,
+            usage: err.usage,
+            fxRate,
+            status: 'error',
+            errorMessage: err.message,
+          });
+        }
+        throw err;
+      }
+
+      const { response: res, usage, model } = extracted;
+
+      if (res.items.length === 0) {
+        await logAiUsage({
+          userId,
+          noteId: null,
+          model,
+          usage,
+          fxRate,
+          status: 'success',
+        });
+        return 0;
+      }
 
       const { data: note, error: noteErr } = await supabase
         .from('notes')
@@ -124,6 +185,15 @@ export function useExtractDump(
         .select('id')
         .single();
       if (noteErr || !note) throw noteErr ?? new Error('Failed to insert note');
+
+      await logAiUsage({
+        userId,
+        noteId: note.id,
+        model,
+        usage,
+        fxRate,
+        status: 'success',
+      });
 
       const uniqueTopicNames = Array.from(
         new Set(res.items.flatMap((i) => i.topics)),
@@ -180,6 +250,7 @@ export function useExtractDump(
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: itemsKey(userId) });
+      qc.invalidateQueries({ queryKey: aiUsageKeys.all(userId) });
     },
   });
 }

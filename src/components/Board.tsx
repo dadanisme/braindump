@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { LogOut, RefreshCw, Settings } from 'lucide-react';
+import { LogOut, Receipt, RefreshCw, Settings } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { ItemRow } from '@/lib/types';
 import {
@@ -27,6 +27,7 @@ import { SearchBar } from './SearchBar';
 import { TopicFilter } from './TopicFilter';
 import { SettingsPanel } from './SettingsPanel';
 import { RawNoteModal } from './RawNoteModal';
+import { AiUsageDialog } from './AiUsageDialog';
 import { BrandMark } from './BrandMark';
 import { Button } from '@/components/ui/button';
 
@@ -61,6 +62,7 @@ function BoardInner({
   const deleteNote = useDeleteNote(userId);
   const { query, selectedTopics } = useFilters();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -175,6 +177,17 @@ function BoardInner({
               type="button"
               variant="secondary"
               size="icon"
+              onClick={() => setUsageOpen(true)}
+              aria-label="AI usage"
+              title="AI usage"
+              className="rounded-full size-9"
+            >
+              <Receipt />
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
               onClick={() => setSettingsOpen(true)}
               aria-label="Settings"
               className="rounded-full size-9"
@@ -255,9 +268,16 @@ function BoardInner({
 
         <RawNoteModal
           noteId={openNoteId}
+          userId={userId}
           title={openNoteTitle}
           onClose={() => setOpenNoteId(null)}
           onDelete={onDeleteNote}
+        />
+
+        <AiUsageDialog
+          open={usageOpen}
+          userId={userId}
+          onClose={() => setUsageOpen(false)}
         />
       </div>
     </BoardActionsProvider>

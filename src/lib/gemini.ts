@@ -1,6 +1,24 @@
 import { GoogleGenAI, Type } from '@google/genai';
-import type { GeminiResponse } from './types';
+import type { GeminiResponse, GeminiUsage } from './types';
 import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
+import { GEMINI_MODEL } from './pricing';
+
+export type ExtractResult = {
+  response: GeminiResponse;
+  usage: GeminiUsage;
+  model: string;
+};
+
+export class GeminiCallError extends Error {
+  usage: GeminiUsage | null;
+  model: string;
+  constructor(message: string, model: string, usage: GeminiUsage | null) {
+    super(message);
+    this.name = 'GeminiCallError';
+    this.model = model;
+    this.usage = usage;
+  }
+}
 
 const LANGUAGE_RULE_AUTO = `# 0. Language — match the dump, always
 Every \`content\` field (idea summary, actions, key_points) must be in the SAME language as the source dump.
@@ -123,6 +141,26 @@ const RESPONSE_SCHEMA = {
   required: ['items'],
 };
 
+function readUsage(meta: unknown): GeminiUsage | null {
+  if (!meta || typeof meta !== 'object') return null;
+  const m = meta as {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+  if (
+    typeof m.promptTokenCount !== 'number' &&
+    typeof m.candidatesTokenCount !== 'number' &&
+    typeof m.totalTokenCount !== 'number'
+  ) {
+    return null;
+  }
+  const inputTokens = m.promptTokenCount ?? 0;
+  const outputTokens = m.candidatesTokenCount ?? 0;
+  const totalTokens = m.totalTokenCount ?? inputTokens + outputTokens;
+  return { inputTokens, outputTokens, totalTokens };
+}
+
 export async function extractItems(
   apiKey: string,
   rawText: string,
@@ -130,14 +168,14 @@ export async function extractItems(
   tz: string,
   existingTopics: string[] = [],
   language: ResponseLanguage = 'auto',
-): Promise<GeminiResponse> {
+): Promise<ExtractResult> {
   const ai = new GoogleGenAI({ apiKey });
   const existingSection =
     existingTopics.length > 0
       ? `Existing topics on this user's board (reuse exact casing/spelling when any of these fit):\n${existingTopics.join(', ')}\n\n`
       : '';
   const res = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-lite',
+    model: GEMINI_MODEL,
     contents: `Current date: ${nowIso}\nTimezone: ${tz}\n\n${existingSection}---\n${rawText}`,
     config: {
       systemInstruction: buildSystemInstruction(language),
@@ -146,12 +184,40 @@ export async function extractItems(
     },
   });
 
-  const text = res.text;
-  if (!text) throw new Error('Gemini returned empty response');
+  const usage = readUsage(
+    (res as unknown as { usageMetadata?: unknown }).usageMetadata,
+  );
 
-  const parsed = JSON.parse(text) as GeminiResponse;
-  if (!parsed.items || !Array.isArray(parsed.items)) {
-    throw new Error('Gemini response missing items array');
+  const text = res.text;
+  if (!text) {
+    throw new GeminiCallError(
+      'Gemini returned empty response',
+      GEMINI_MODEL,
+      usage,
+    );
   }
-  return parsed;
+
+  let parsed: GeminiResponse;
+  try {
+    parsed = JSON.parse(text) as GeminiResponse;
+  } catch {
+    throw new GeminiCallError(
+      'Gemini response was not valid JSON',
+      GEMINI_MODEL,
+      usage,
+    );
+  }
+  if (!parsed.items || !Array.isArray(parsed.items)) {
+    throw new GeminiCallError(
+      'Gemini response missing items array',
+      GEMINI_MODEL,
+      usage,
+    );
+  }
+
+  return {
+    response: parsed,
+    usage: usage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    model: GEMINI_MODEL,
+  };
 }
