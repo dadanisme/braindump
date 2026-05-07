@@ -8,7 +8,6 @@ import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
 import type {
   GeminiUsage,
   ItemRow,
-  ItemTopicRow,
   ItemWithTopics,
   NoteRow,
   TopicRow,
@@ -50,34 +49,22 @@ export function noteKey(noteId: string) {
 }
 
 async function fetchItems(userId: string): Promise<ItemWithTopics[]> {
-  const [itemsRes, topicsRes, linksRes] = await Promise.all([
-    supabase
-      .from('items')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false }),
-    supabase.from('topics').select('*').eq('user_id', userId),
-    supabase.from('item_topics').select('*'),
-  ]);
-  if (itemsRes.error) throw itemsRes.error;
-  if (topicsRes.error) throw topicsRes.error;
-  if (linksRes.error) throw linksRes.error;
+  const { data, error } = await supabase
+    .from('items')
+    .select('*, item_topics(topics(*))')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
 
-  const topicById = new Map<string, TopicRow>();
-  for (const t of topicsRes.data as TopicRow[]) topicById.set(t.id, t);
+  type Row = ItemRow & {
+    item_topics: Array<{ topics: TopicRow | null }>;
+  };
 
-  const topicsByItem = new Map<string, TopicRow[]>();
-  for (const link of linksRes.data as ItemTopicRow[]) {
-    const topic = topicById.get(link.topic_id);
-    if (!topic) continue;
-    const arr = topicsByItem.get(link.item_id) ?? [];
-    arr.push(topic);
-    topicsByItem.set(link.item_id, arr);
-  }
-
-  return (itemsRes.data as ItemRow[]).map((it) => ({
-    ...it,
-    topics: topicsByItem.get(it.id) ?? [],
+  return (data as Row[]).map(({ item_topics, ...item }) => ({
+    ...item,
+    topics: item_topics
+      .map((it) => it.topics)
+      .filter((t): t is TopicRow => t !== null),
   }));
 }
 
