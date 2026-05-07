@@ -48,19 +48,28 @@ export function noteKey(noteId: string) {
   return ['note', noteId] as const;
 }
 
-async function fetchItems(userId: string): Promise<ItemWithTopics[]> {
-  const { data, error } = await supabase
-    .from('items')
-    .select('*, item_topics(topics(*))')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
+const PAGE_SIZE = 1000;
 
+async function fetchItems(userId: string): Promise<ItemWithTopics[]> {
   type Row = ItemRow & {
     item_topics: Array<{ topics: TopicRow | null }>;
   };
 
-  return (data as Row[]).map(({ item_topics, ...item }) => ({
+  const all: Row[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('items')
+      .select('*, item_topics(topics(*))')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as Row[];
+    all.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+
+  return all.map(({ item_topics, ...item }) => ({
     ...item,
     topics: item_topics
       .map((it) => it.topics)
