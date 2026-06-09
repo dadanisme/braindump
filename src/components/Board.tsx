@@ -21,6 +21,7 @@ import {
   useSlashFocus,
 } from '@/hooks/useFocusHotkey';
 import { useLanguageSetting } from '@/hooks/useLanguageSetting';
+import { useModelSetting } from '@/hooks/useModelSetting';
 import { BrainDumpInput } from './BrainDumpInput';
 import { ItemColumn } from './ItemColumn';
 import { SearchBar } from './SearchBar';
@@ -68,6 +69,7 @@ function BoardInner({
   const searchRef = useRef<HTMLInputElement>(null);
   const { code: hotkeyCode, save: saveHotkey } = useFocusHotkeySetting();
   const { language, save: saveLanguage } = useLanguageSetting();
+  const { model, save: saveModel } = useModelSetting();
 
   const focusInput = useCallback(() => {
     inputRef.current?.focus();
@@ -243,6 +245,7 @@ function BoardInner({
         <BrainDumpInput
           apiKey={apiKey}
           userId={userId}
+          model={model}
           language={language}
           ref={inputRef}
           focusHotkeySymbol={focusHotkeySymbol(hotkeyCode)}
@@ -251,6 +254,8 @@ function BoardInner({
         <SettingsPanel
           open={settingsOpen}
           apiKey={apiKey}
+          model={model}
+          onChangeModel={saveModel}
           hotkey={hotkeyCode}
           onChangeHotkey={saveHotkey}
           language={language}
@@ -303,7 +308,7 @@ function EmptyState() {
           Your empty page.
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Paste a dump below. Gemini sorts it into ideas, action items, and
+          Paste a dump below. We&apos;ll sort it into ideas, action items, and
           key points.
         </p>
       </div>

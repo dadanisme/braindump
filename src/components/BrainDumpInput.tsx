@@ -10,6 +10,7 @@ import { cn } from '@/lib/cn';
 type Props = {
   apiKey: string;
   userId: string;
+  model: string;
   language: ResponseLanguage;
   focusHotkeySymbol?: string;
 };
@@ -18,11 +19,11 @@ const COLLAPSED_H = 36;
 const MIN_H = 56;
 const MAX_H = 180;
 
-export const BrainDumpInput = forwardRef<HTMLTextAreaElement, Props>(function BrainDumpInput({ apiKey, userId, language, focusHotkeySymbol }, forwardedRef) {
+export const BrainDumpInput = forwardRef<HTMLTextAreaElement, Props>(function BrainDumpInput({ apiKey, userId, model, language, focusHotkeySymbol }, forwardedRef) {
   const [text, setText] = useState('');
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const extract = useExtractDump(userId, apiKey, language);
+  const extract = useExtractDump(userId, apiKey, model, language);
   const ref = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(forwardedRef, () => ref.current as HTMLTextAreaElement, []);
 

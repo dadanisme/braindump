@@ -148,7 +148,7 @@ export function AiUsageDialog({ open, userId, onClose }: Props) {
         <DialogHeader>
           <DialogTitle>AI usage</DialogTitle>
           <DialogDescription className="text-[12px]">
-            Tokens and cost across every Gemini call from this account.
+            Tokens and cost across every model call from this account.
           </DialogDescription>
         </DialogHeader>
 

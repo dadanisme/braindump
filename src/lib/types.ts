@@ -34,18 +34,18 @@ export type ItemWithTopics = ItemRow & {
   topics: TopicRow[];
 };
 
-export type GeminiItem = {
+export type ExtractedItem = {
   type: ItemType;
   content: string;
   deadline: string | null;
   topics: string[];
 };
 
-export type GeminiResponse = {
-  items: GeminiItem[];
+export type ExtractResponse = {
+  items: ExtractedItem[];
 };
 
-export type GeminiUsage = {
+export type TokenUsage = {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;

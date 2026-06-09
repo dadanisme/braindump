@@ -37,17 +37,17 @@ export function ApiKeyModal({ onSave }: Props) {
               <span className="size-1.5 rounded-full bg-idea" />
               One last thing
             </div>
-            <DialogTitle>Your Gemini key</DialogTitle>
+            <DialogTitle>Your OpenRouter key</DialogTitle>
             <DialogDescription>
               Stored locally in your browser — never sent to our server. Grab
               one from{' '}
               <a
-                href="https://aistudio.google.com/apikey"
+                href="https://openrouter.ai/settings/keys"
                 target="_blank"
                 rel="noreferrer"
                 className="text-foreground underline decoration-muted-foreground underline-offset-4 hover:decoration-foreground transition-all"
               >
-                Google AI Studio
+                openrouter.ai/settings/keys
               </a>
               .
             </DialogDescription>
@@ -56,7 +56,7 @@ export function ApiKeyModal({ onSave }: Props) {
           <Input
             type="password"
             required
-            placeholder="AIza•••••••••"
+            placeholder="sk-or-v1-•••••••••"
             value={key}
             onChange={(e) => setKey(e.target.value)}
             className="font-mono text-[13px]"

@@ -1,22 +1,31 @@
-import { GoogleGenAI, Type } from '@google/genai';
-import type { GeminiResponse, GeminiUsage } from './types';
+import type { ExtractResponse, TokenUsage } from './types';
 import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
-import { GEMINI_MODEL } from './pricing';
+
+export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1';
+export const DEFAULT_MODEL = 'google/gemini-2.5-flash-lite';
 
 export type ExtractResult = {
-  response: GeminiResponse;
-  usage: GeminiUsage;
+  response: ExtractResponse;
+  usage: TokenUsage;
+  costUsd: number;
   model: string;
 };
 
-export class GeminiCallError extends Error {
-  usage: GeminiUsage | null;
+export class OpenRouterCallError extends Error {
+  usage: TokenUsage | null;
+  costUsd: number;
   model: string;
-  constructor(message: string, model: string, usage: GeminiUsage | null) {
+  constructor(
+    message: string,
+    model: string,
+    usage: TokenUsage | null,
+    costUsd = 0,
+  ) {
     super(message);
-    this.name = 'GeminiCallError';
+    this.name = 'OpenRouterCallError';
     this.model = model;
     this.usage = usage;
+    this.costUsd = costUsd;
   }
 }
 
@@ -110,114 +119,194 @@ For the **idea** (summary/title), synthesize freely — it is a distilled headli
 Respond with JSON matching the provided schema. No commentary, no prose, no trailing text.`;
 }
 
-const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    items: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          type: {
-            type: Type.STRING,
-            enum: ['idea', 'action', 'key_point'],
-          },
-          content: { type: Type.STRING },
-          deadline: {
-            type: Type.STRING,
-            nullable: true,
-            description: 'ISO 8601 timestamp, null when type is not action or deadline is unclear.',
-          },
-          topics: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
+const RESPONSE_FORMAT = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'extracted_items',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              type: {
+                type: 'string',
+                enum: ['idea', 'action', 'key_point'],
+              },
+              content: { type: 'string' },
+              deadline: {
+                type: ['string', 'null'],
+                description:
+                  'ISO 8601 timestamp, null when type is not action or deadline is unclear.',
+              },
+              topics: {
+                type: 'array',
+                items: { type: 'string' },
+              },
+            },
+            required: ['type', 'content', 'deadline', 'topics'],
+            additionalProperties: false,
           },
         },
-        required: ['type', 'content', 'deadline', 'topics'],
-        propertyOrdering: ['type', 'content', 'deadline', 'topics'],
       },
+      required: ['items'],
+      additionalProperties: false,
     },
   },
-  required: ['items'],
 };
 
-function readUsage(meta: unknown): GeminiUsage | null {
-  if (!meta || typeof meta !== 'object') return null;
-  const m = meta as {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
-    totalTokenCount?: number;
+type ChatCompletionBody = {
+  choices?: Array<{
+    message?: { content?: string | null };
+    finish_reason?: string | null;
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    cost?: number;
   };
-  if (
-    typeof m.promptTokenCount !== 'number' &&
-    typeof m.candidatesTokenCount !== 'number' &&
-    typeof m.totalTokenCount !== 'number'
-  ) {
-    return null;
-  }
-  const inputTokens = m.promptTokenCount ?? 0;
-  const outputTokens = m.candidatesTokenCount ?? 0;
-  const totalTokens = m.totalTokenCount ?? inputTokens + outputTokens;
-  return { inputTokens, outputTokens, totalTokens };
+  error?: { code?: number | string; message?: string };
+};
+
+function readUsage(body: ChatCompletionBody): {
+  usage: TokenUsage | null;
+  costUsd: number;
+} {
+  const u = body.usage;
+  if (!u || typeof u !== 'object') return { usage: null, costUsd: 0 };
+  const inputTokens = u.prompt_tokens ?? 0;
+  const outputTokens = u.completion_tokens ?? 0;
+  const totalTokens = u.total_tokens ?? inputTokens + outputTokens;
+  return {
+    usage: { inputTokens, outputTokens, totalTokens },
+    costUsd: u.cost ?? 0,
+  };
 }
 
 export async function extractItems(
   apiKey: string,
+  model: string,
   rawText: string,
   nowIso: string,
   tz: string,
   existingTopics: string[] = [],
   language: ResponseLanguage = 'auto',
 ): Promise<ExtractResult> {
-  const ai = new GoogleGenAI({ apiKey });
   const existingSection =
     existingTopics.length > 0
       ? `Existing topics on this user's board (reuse exact casing/spelling when any of these fit):\n${existingTopics.join(', ')}\n\n`
       : '';
-  const res = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: `Current date: ${nowIso}\nTimezone: ${tz}\n\n${existingSection}---\n${rawText}`,
-    config: {
-      systemInstruction: buildSystemInstruction(language),
-      responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
+
+  const res = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'X-OpenRouter-Title': 'Brain Dump',
     },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: buildSystemInstruction(language) },
+        {
+          role: 'user',
+          content: `Current date: ${nowIso}\nTimezone: ${tz}\n\n${existingSection}---\n${rawText}`,
+        },
+      ],
+      stream: false,
+      // Only route to providers that honor response_format — without this a
+      // multi-provider model can land on a host that ignores the schema.
+      provider: { require_parameters: true },
+      response_format: RESPONSE_FORMAT,
+    }),
   });
 
-  const usage = readUsage(
-    (res as unknown as { usageMetadata?: unknown }).usageMetadata,
-  );
-
-  const text = res.text;
-  if (!text) {
-    throw new GeminiCallError(
-      'Gemini returned empty response',
-      GEMINI_MODEL,
-      usage,
+  let body: ChatCompletionBody;
+  try {
+    body = (await res.json()) as ChatCompletionBody;
+  } catch {
+    throw new OpenRouterCallError(
+      `OpenRouter returned an unreadable response (HTTP ${res.status})`,
+      model,
+      null,
     );
   }
 
-  let parsed: GeminiResponse;
-  try {
-    parsed = JSON.parse(text) as GeminiResponse;
-  } catch {
-    throw new GeminiCallError(
-      'Gemini response was not valid JSON',
-      GEMINI_MODEL,
+  const { usage, costUsd } = readUsage(body);
+
+  // OpenRouter reports mid-generation failures with HTTP 200 + error body,
+  // so the body error has to be checked even on ok responses.
+  if (!res.ok || body.error) {
+    const message =
+      body.error?.message ?? `OpenRouter request failed (HTTP ${res.status})`;
+    throw new OpenRouterCallError(message, model, usage, costUsd);
+  }
+
+  const choice = body.choices?.[0];
+  const finishReason = choice?.finish_reason;
+  if (finishReason === 'error') {
+    throw new OpenRouterCallError(
+      'Model provider failed mid-generation',
+      model,
       usage,
+      costUsd,
+    );
+  }
+  if (finishReason === 'length') {
+    throw new OpenRouterCallError(
+      'Model response was cut off (output limit reached)',
+      model,
+      usage,
+      costUsd,
+    );
+  }
+  if (finishReason === 'content_filter') {
+    throw new OpenRouterCallError(
+      'Model provider filtered the response',
+      model,
+      usage,
+      costUsd,
+    );
+  }
+
+  const text = choice?.message?.content;
+  if (!text) {
+    throw new OpenRouterCallError(
+      'Model returned empty response',
+      model,
+      usage,
+      costUsd,
+    );
+  }
+
+  let parsed: ExtractResponse;
+  try {
+    parsed = JSON.parse(text) as ExtractResponse;
+  } catch {
+    throw new OpenRouterCallError(
+      'Model response was not valid JSON',
+      model,
+      usage,
+      costUsd,
     );
   }
   if (!parsed.items || !Array.isArray(parsed.items)) {
-    throw new GeminiCallError(
-      'Gemini response missing items array',
-      GEMINI_MODEL,
+    throw new OpenRouterCallError(
+      'Model response missing items array',
+      model,
       usage,
+      costUsd,
     );
   }
 
   return {
     response: parsed,
     usage: usage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-    model: GEMINI_MODEL,
+    costUsd,
+    model,
   };
 }

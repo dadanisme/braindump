@@ -19,10 +19,16 @@ import {
   type ResponseLanguage,
 } from '@/hooks/useLanguageSetting';
 import { THEME_OPTIONS, type Theme, useTheme } from '@/hooks/useTheme';
+import {
+  useOpenRouterModels,
+  type OpenRouterModel,
+} from '@/hooks/useOpenRouterModels';
 
 type Props = {
   open: boolean;
   apiKey: string | null;
+  model: string;
+  onChangeModel: (id: string) => void;
   hotkey: FocusHotkeyCode;
   onChangeHotkey: (code: FocusHotkeyCode) => void;
   language: ResponseLanguage;
@@ -32,9 +38,17 @@ type Props = {
   onClose: () => void;
 };
 
+function priceLabel(m: OpenRouterModel): string {
+  if (m.promptPerMillion === 0 && m.completionPerMillion === 0) return 'free';
+  const fmt = (n: number) => parseFloat(n.toPrecision(3)).toString();
+  return `$${fmt(m.promptPerMillion)} in / $${fmt(m.completionPerMillion)} out`;
+}
+
 export function SettingsPanel({
   open,
   apiKey,
+  model,
+  onChangeModel,
   hotkey,
   onChangeHotkey,
   language,
@@ -45,6 +59,9 @@ export function SettingsPanel({
 }: Props) {
   const [draft, setDraft] = useState('');
   const { theme, setTheme } = useTheme();
+  const models = useOpenRouterModels(open);
+  const modelList = models.data ?? [];
+  const listHasCurrent = modelList.some((m) => m.id === model);
 
   function save() {
     if (!draft.trim()) return;
@@ -65,7 +82,7 @@ export function SettingsPanel({
 
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">
-            <label className="text-sm font-medium">Gemini API key</label>
+            <label className="text-sm font-medium">OpenRouter API key</label>
             <span className="font-mono text-[11px] text-muted-foreground">
               {apiKey
                 ? `${apiKey.slice(0, 4)}••••${apiKey.slice(-4)}`
@@ -109,6 +126,36 @@ export function SettingsPanel({
 
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">
+            <label htmlFor="model" className="text-sm font-medium">
+              Model
+            </label>
+            <span className="text-[11px] text-muted-foreground">
+              {models.isLoading
+                ? 'loading models…'
+                : models.isError
+                  ? 'couldn’t load model list'
+                  : 'prices per 1M tokens'}
+            </span>
+          </div>
+          <select
+            id="model"
+            value={model}
+            onChange={(e) => onChangeModel(e.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {!listHasCurrent && <option value={model}>{model}</option>}
+            {modelList.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} — {priceLabel(m)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
             <label htmlFor="focus-hotkey" className="text-sm font-medium">
               Focus input hotkey
             </label>
@@ -140,7 +187,7 @@ export function SettingsPanel({
               Response language
             </label>
             <span className="text-[11px] text-muted-foreground">
-              forces Gemini output
+              forces model output
             </span>
           </div>
           <select

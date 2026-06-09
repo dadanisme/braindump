@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { extractItems, GeminiCallError } from '../lib/gemini';
-import { computeCostUsd } from '../lib/pricing';
+import { extractItems, OpenRouterCallError } from '../lib/openrouter';
 import { getUsdToIdrRate } from '../lib/currency';
 import { aiUsageKeys } from './useAiUsage';
 import type { ResponseLanguage } from '@/hooks/useLanguageSetting';
 import type {
-  GeminiUsage,
+  TokenUsage,
   ItemRow,
   ItemWithTopics,
   NoteRow,
@@ -17,12 +16,12 @@ async function logAiUsage(args: {
   userId: string;
   noteId: string | null;
   model: string;
-  usage: GeminiUsage;
+  usage: TokenUsage;
+  costUsd: number;
   fxRate: number;
   status: 'success' | 'error';
   errorMessage?: string | null;
 }) {
-  const cost = computeCostUsd(args.model, args.usage.inputTokens, args.usage.outputTokens);
   const { error } = await supabase.from('ai_usage').insert({
     user_id: args.userId,
     note_id: args.noteId,
@@ -30,7 +29,7 @@ async function logAiUsage(args: {
     input_tokens: args.usage.inputTokens,
     output_tokens: args.usage.outputTokens,
     total_tokens: args.usage.totalTokens,
-    cost_usd: cost,
+    cost_usd: args.costUsd,
     fx_rate_idr: args.fxRate,
     status: args.status,
     error_message: args.errorMessage ?? null,
@@ -123,6 +122,7 @@ export function useUpdateItem(userId: string) {
 export function useExtractDump(
   userId: string,
   apiKey: string,
+  model: string,
   language: ResponseLanguage,
 ) {
   const qc = useQueryClient();
@@ -140,6 +140,7 @@ export function useExtractDump(
       try {
         extracted = await extractItems(
           apiKey,
+          model,
           rawText,
           new Date().toISOString(),
           'Asia/Jakarta',
@@ -147,12 +148,13 @@ export function useExtractDump(
           language,
         );
       } catch (err) {
-        if (err instanceof GeminiCallError && err.usage) {
+        if (err instanceof OpenRouterCallError && err.usage) {
           await logAiUsage({
             userId,
             noteId: null,
             model: err.model,
             usage: err.usage,
+            costUsd: err.costUsd,
             fxRate,
             status: 'error',
             errorMessage: err.message,
@@ -161,7 +163,7 @@ export function useExtractDump(
         throw err;
       }
 
-      const { response: res, usage, model } = extracted;
+      const { response: res, usage, costUsd } = extracted;
 
       if (res.items.length === 0) {
         await logAiUsage({
@@ -169,6 +171,7 @@ export function useExtractDump(
           noteId: null,
           model,
           usage,
+          costUsd,
           fxRate,
           status: 'success',
         });
@@ -187,6 +190,7 @@ export function useExtractDump(
         noteId: note.id,
         model,
         usage,
+        costUsd,
         fxRate,
         status: 'success',
       });

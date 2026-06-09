@@ -4,7 +4,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import { get, set, del } from 'idb-keyval';
 import { Toaster } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { useGeminiKey } from '@/hooks/useGeminiKey';
+import { useOpenRouterKey } from '@/hooks/useOpenRouterKey';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { Login } from '@/components/Login';
 import { ApiKeyModal } from '@/components/ApiKeyModal';
@@ -34,7 +34,7 @@ const persister = createAsyncStoragePersister({
 
 export default function App() {
   const { session, loading, signOut } = useAuth();
-  const { apiKey, save, clear } = useGeminiKey();
+  const { apiKey, save, clear } = useOpenRouterKey();
 
   const handleSignOut = async () => {
     await signOut();
